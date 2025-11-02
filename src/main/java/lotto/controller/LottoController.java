@@ -20,24 +20,26 @@ public class LottoController {
     }
 
     public void run() {
-        // 1. 로또 구매
-        int purchaseAmount = getPurchaseAmountWithRetry();
-        List<Lotto> lottos = lottoMachine.issueLottos(purchaseAmount);
+        // 1. 로또 구매 (예외 처리 및 재시도 로직 포함)
+        List<Lotto> lottos = issueLottosWithRetry();
         outputView.printIssuedLottos(lottos);
 
-        //2. 당첨 번호 설정
+        // 2. 당첨 번호 설정
         WinningLotto winningLotto = createWinningLottoWithRetry();
 
-        //3. 당첨 확인
+        // 3. 당첨 확인 및 결과 출력
+        // LottoResult 생성 시에는 구입 금액이 필요 없으므로, 출력 시에만 전달
+        int purchaseAmount = lottos.size() * 1000; 
         LottoResult lottoResult = new LottoResult(lottos, winningLotto);
         outputView.printResult(lottoResult, purchaseAmount);
     }
 
-    // 구입 금액 입력을 성공할 때까지 반복
-    private int getPurchaseAmountWithRetry() {
+    // 로또 발행을 성공할 때까지 반복하는 메서드
+    private List<Lotto> issueLottosWithRetry() {
         while (true) {
             try {
-                return inputView.readPurchaseAmount();
+                int purchaseAmount = inputView.readPurchaseAmount();
+                return lottoMachine.issueLottos(purchaseAmount);
             } catch (IllegalArgumentException e) {
                 outputView.printError(e.getMessage());
             }
@@ -46,14 +48,11 @@ public class LottoController {
 
     // 당첨 로또 생성을 성공할 때까지 반복
     private WinningLotto createWinningLottoWithRetry() {
-        // 먼저 당첨 번호 6개를 성공할 때까지 입력받는다.
         Lotto winningNumbers = getWinningNumbersWithRetry();
 
-        // 그 다음, 보너스 번호를 성공할 때까지 입력받는다.
         while (true) {
             try {
                 int bonusNumber = inputView.readBonusNumber();
-                // 여기서 WinningLotto 생성을 시도! (보너스 번호 중복 검사 발생 가능)
                 return new WinningLotto(winningNumbers, bonusNumber);
             } catch (IllegalArgumentException e) {
                 outputView.printError(e.getMessage());
@@ -66,7 +65,6 @@ public class LottoController {
         while (true) {
             try {
                 List<Integer> numbers = inputView.readWinningNumbers();
-                // 여기서 Lotto 생성을 시도! (번호 개수, 중복, 범위 검사 발생 가능)
                 return new Lotto(numbers);
             } catch (IllegalArgumentException e) {
                 outputView.printError(e.getMessage());
